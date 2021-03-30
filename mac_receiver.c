@@ -35,9 +35,9 @@ void MacReceiver(void *argument)
     CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);				
 		qPtr = queueMsg.anyPtr;
 		
-		switch(queueMsg.type){
+		switch(qPtr[0]){
 			
-			case TOKEN :
+			case TOKEN_TAG :
 				//put token frame in queue_macS_id
 				retCode = osMessageQueuePut(
 				queue_macS_id,
