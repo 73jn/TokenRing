@@ -1,7 +1,7 @@
 //////////////////////////////////////////////////////////////////////////////////
-/// \file mac_receiver.c
-/// \brief MAC receiver thread
-/// \author Pascal Sartoretti (sap at hevs dot ch)
+/// \file mac_sender.c
+/// \brief MAC sender thread
+/// \author Pascal Sartoretti (pascal dot sartoretti at hevs dot ch)
 /// \version 1.0 - original
 /// \date  2018-02
 //////////////////////////////////////////////////////////////////////////////////
@@ -10,52 +10,59 @@
 #include <stdio.h>
 #include <string.h>
 #include "main.h"
+#include "ext_led.h"
 
-
+void sendToken(osStatus_t	retCode,	struct queueMsg_t* queueMsg, char* tokenTag,	char * msg){
+	//Send to LCD TOKEN_LIST
+	
+	
+	//Send to Physical
+	
+	//------------------------------------------------------------------------
+	// MEMORY ALLOCATION				
+	//------------------------------------------------------------------------
+	msg = osMemoryPoolAlloc(memPool,osWaitForever);				
+	queueMsg->type = TOKEN;
+	queueMsg->anyPtr = msg;
+	memcpy(msg,tokenTag,strlen(tokenTag)+1);
+		//------------------------------------------------------------------------
+		// QUEUE SEND								
+		//------------------------------------------------------------------------
+		retCode = osMessageQueuePut(
+			queue_phyS_id,
+			queueMsg,
+			osPriorityNormal,
+			osWaitForever);
+		CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);					
+}
 //////////////////////////////////////////////////////////////////////////////////
 // THREAD MAC RECEIVER
 //////////////////////////////////////////////////////////////////////////////////
-void MacReceiver(void *argument)
+void MacSender(void *argument)
 {
-	struct queueMsg_t queueMsg;		// queue message
-	uint8_t * msg;
-	uint8_t * qPtr;
-	size_t	size;
-	osStatus_t retCode;
-	
-	for(;;){
+	char * msg;
+	char tokenTag = TOKEN_TAG;
+	osStatus_t	retCode; //Message de retour de la queue
+	struct queueMsg_t queueMsg;	// message queue
+	for (;;){
 		//----------------------------------------------------------------------------
 		// QUEUE READ										
 		//----------------------------------------------------------------------------
 		retCode = osMessageQueueGet( 	
-			queue_macR_id,
+			queue_macS_id,
 			&queueMsg,
 			NULL,
 			osWaitForever); 	
-    CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);				
-		qPtr = queueMsg.anyPtr;
+    CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);		
 		
-		switch(qPtr[1]){
-			
-			case TOKEN_TAG :
-				//put token frame in queue_macS_id
-				retCode = osMessageQueuePut(
-				queue_macS_id,
-				&queueMsg,
-				osPriorityNormal,
-				osWaitForever);
-			
-				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);	
+		
+		switch(queueMsg.type){
+			case NEW_TOKEN:
+				sendToken(retCode, &queueMsg, &tokenTag, msg);
 				break;
 			
-			case FROM_PHY :
-				break;
-			
-			default : 
-				break;
-			
+			default :
+				
 		}
 	}
 }
-
-
