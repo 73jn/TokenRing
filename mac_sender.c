@@ -13,6 +13,30 @@
 #include "ext_led.h"
 
 void sendToken(osStatus_t	retCode,	struct queueMsg_t* queueMsg, char* tokenTag,	char * msg){
+	//Check si on a des trucs dans la queue
+	//Et on envoie normalement
+	//Send to Physical
+	
+	//------------------------------------------------------------------------
+	// MEMORY ALLOCATION				
+	//------------------------------------------------------------------------
+		msg = osMemoryPoolAlloc(memPool,osWaitForever);
+		memset(msg, 0x00, TOKENSIZE);
+		msg[0] = TOKEN_TAG;
+		queueMsg->type = TO_PHY;
+		queueMsg->anyPtr = msg;
+		//------------------------------------------------------------------------
+		// QUEUE SEND								
+		//------------------------------------------------------------------------
+		retCode = osMessageQueuePut(
+			queue_phyS_id,
+			queueMsg,
+			osPriorityNormal,
+			osWaitForever);
+		CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);		
+}
+
+void sendNewToken(osStatus_t	retCode,	struct queueMsg_t* queueMsg, char* tokenTag,	char * msg){
 	//Send to LCD TOKEN_LIST
 	
 	
@@ -21,10 +45,11 @@ void sendToken(osStatus_t	retCode,	struct queueMsg_t* queueMsg, char* tokenTag,	
 	//------------------------------------------------------------------------
 	// MEMORY ALLOCATION				
 	//------------------------------------------------------------------------
-	msg = osMemoryPoolAlloc(memPool,osWaitForever);				
-	queueMsg->type = TOKEN;
+	msg = osMemoryPoolAlloc(memPool,osWaitForever);
+	memset(msg, 0x00, TOKENSIZE);
+	msg[0] = TOKEN_TAG;
+	queueMsg->type = TO_PHY;
 	queueMsg->anyPtr = msg;
-	memcpy(msg,tokenTag,strlen(tokenTag)+1);
 		//------------------------------------------------------------------------
 		// QUEUE SEND								
 		//------------------------------------------------------------------------
@@ -58,9 +83,11 @@ void MacSender(void *argument)
 		
 		switch(queueMsg.type){
 			case NEW_TOKEN:
+				sendNewToken(retCode, &queueMsg, &tokenTag, msg);
+				break;
+			case TOKEN:
 				sendToken(retCode, &queueMsg, &tokenTag, msg);
 				break;
-			
 			default :
 				
 		}
