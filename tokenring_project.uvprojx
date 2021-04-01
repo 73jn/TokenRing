@@ -338,7 +338,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>.\RTE\uGFX_library;..\TOKENRING</IncludePath>
+              <IncludePath>.\RTE\uGFX_library;..\TOKENRING;..\TokenRing_code</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>

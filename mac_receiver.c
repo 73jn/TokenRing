@@ -36,6 +36,7 @@ void MacReceiver(void *argument)
     CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);	
 			
 		qPtr = queueMsg.anyPtr;
+		queueMsg.type = TOKEN;
 		
 		switch(qPtr[0]){
 			
@@ -48,6 +49,12 @@ void MacReceiver(void *argument)
 				osWaitForever);
 			
 				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);	
+			
+				//----------------------------------------------------------------------------
+				// MEMORY RELEASE	(received frame : mac layer style)
+				//----------------------------------------------------------------------------
+				retCode = osMemoryPoolFree(memPool,qPtr);
+				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);			
 				break;
 			
 		}
