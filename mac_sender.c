@@ -15,23 +15,26 @@ void sendTokenList(osStatus_t	retCode,	struct queueMsg_t* queueMsg,	char * msg);
 void sendToken(osStatus_t	retCode,	struct queueMsg_t* queueMsg,	char * msg);
 void receiveToken(osStatus_t	retCode,	struct queueMsg_t* queueMsg,	char * msg);
 
+bool newToken = false;
 
+//Quand on recoit le token
 void receiveToken(osStatus_t	retCode,	struct queueMsg_t* queueMsg,	char * msg){
 	//Check si on a des trucs dans la queue
 	//Et on envoie normalement
+	
+	
 	//Send to Physical
 	msg = queueMsg->anyPtr;
-	for (int i = 0; i < TOKENSIZE-1; i++){
+	for (int i = 0; i < TOKENSIZE-1; i++){ //On mets a jour la station list avec le msg recu
 		gTokenInterface.station_list[i] = msg[i+1];
 	}
-	sendToken(retCode, queueMsg, msg);
-	sendTokenList(retCode, queueMsg, msg);
+	gTokenInterface.station_list[gTokenInterface.myAddress]=CHAT_SAPI;
+	
+	sendToken(retCode, queueMsg, msg); //On renvoie le token avec la liste
+	sendTokenList(retCode, queueMsg, msg); //On envoie la liste des stations a jour
 }
 
 void sendToken(osStatus_t	retCode,	struct queueMsg_t* queueMsg,	char * msg){
-	//Send to LCD TOKEN_LIST
-	
-	
 	//Send to Physical
 	
 	//------------------------------------------------------------------------
@@ -40,7 +43,16 @@ void sendToken(osStatus_t	retCode,	struct queueMsg_t* queueMsg,	char * msg){
 	msg = osMemoryPoolAlloc(memPool,osWaitForever);
 	memset(msg, 0x00, TOKENSIZE);
 	msg[0] = TOKEN_TAG;
-	msg[1+MYADDRESS] = CHAT_SAPI; //Set station sapi in token frame
+	if (newToken){ //Si c'est un nouveau token on envoie notre addresse dans la trame
+		msg[1+gTokenInterface.myAddress] = CHAT_SAPI; //Set station sapi in token frame
+		gTokenInterface.station_list[gTokenInterface.myAddress] = CHAT_SAPI;
+		newToken = false;
+	} else
+	{ //Sinon on envoie les addresse qu'il y a dans la liste des stations
+		for (int i = 0; i < TOKENSIZE-1; i++){
+			msg[i+1] = gTokenInterface.station_list[i];
+		}
+	}
 	queueMsg->type = TO_PHY;
 	queueMsg->anyPtr = msg;
 		//------------------------------------------------------------------------
@@ -97,10 +109,13 @@ void MacSender(void *argument)
 		
 		switch(queueMsg.type){
 			case NEW_TOKEN:
+				newToken = true;
 				sendToken(retCode, &queueMsg, msg);
 				break;
 			case TOKEN:
 				receiveToken(retCode, &queueMsg, msg);
+				break;
+			case START:
 				break;
 			default :
 				
