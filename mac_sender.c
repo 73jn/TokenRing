@@ -28,7 +28,7 @@ void receiveToken(osStatus_t	retCode,	struct queueMsg_t* queueMsg,	char * msg){
 	for (int i = 0; i < TOKENSIZE-1; i++){ //On mets a jour la station list avec le msg recu
 		gTokenInterface.station_list[i] = msg[i+1];
 	}
-	gTokenInterface.station_list[gTokenInterface.myAddress]=CHAT_SAPI;
+	gTokenInterface.station_list[gTokenInterface.myAddress]= 1 << CHAT_SAPI;
 	
 	sendToken(retCode, queueMsg, msg); //On renvoie le token avec la liste
 	sendTokenList(retCode, queueMsg, msg); //On envoie la liste des stations a jour
@@ -40,15 +40,19 @@ void sendToken(osStatus_t	retCode,	struct queueMsg_t* queueMsg,	char * msg){
 	//------------------------------------------------------------------------
 	// MEMORY ALLOCATION				
 	//------------------------------------------------------------------------
-	msg = osMemoryPoolAlloc(memPool,osWaitForever);
-	memset(msg, 0x00, TOKENSIZE);
-	msg[0] = TOKEN_TAG;
+//	msg = osMemoryPoolAlloc(memPool,osWaitForever);/
+//	memset(msg, 0x00, TOKENSIZE);
+
 	if (newToken){ //Si c'est un nouveau token on envoie notre addresse dans la trame
-		msg[1+gTokenInterface.myAddress] = CHAT_SAPI; //Set station sapi in token frame
-		gTokenInterface.station_list[gTokenInterface.myAddress] = CHAT_SAPI;
+		msg = osMemoryPoolAlloc(memPool,osWaitForever);
+		memset(msg, 0x00, TOKENSIZE);
+		msg[0] = TOKEN_TAG;
+		msg[1+gTokenInterface.myAddress] = 1 << CHAT_SAPI; //Set station sapi in token frame
+		gTokenInterface.station_list[gTokenInterface.myAddress] = 1 << CHAT_SAPI;
 		newToken = false;
 	} else
 	{ //Sinon on envoie les addresse qu'il y a dans la liste des stations
+		msg[0] = TOKEN_TAG;
 		for (int i = 0; i < TOKENSIZE-1; i++){
 			msg[i+1] = gTokenInterface.station_list[i];
 		}
@@ -70,13 +74,7 @@ void sendToken(osStatus_t	retCode,	struct queueMsg_t* queueMsg,	char * msg){
 
 }
 void sendTokenList(osStatus_t	retCode,	struct queueMsg_t* queueMsg,	char * msg){
-		//------------------------------------------------------------------------
-	// MEMORY ALLOCATION				
-	//------------------------------------------------------------------------
-	msg = osMemoryPoolAlloc(memPool,osWaitForever);
-	memset(msg, 0x00, TOKENSIZE);
 	queueMsg->type = TOKEN_LIST;
-	queueMsg->anyPtr = msg;
 		//------------------------------------------------------------------------
 		// QUEUE SEND								
 		//------------------------------------------------------------------------
@@ -113,7 +111,7 @@ void MacSender(void *argument)
 				sendToken(retCode, &queueMsg, msg);
 				break;
 			case TOKEN:
-				receiveToken(retCode, &queueMsg, msg);
+				receiveToken(retCode, &queueMsg, msg);	
 				break;
 			case START:
 				break;
