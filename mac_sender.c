@@ -12,7 +12,22 @@
 #include "main.h"
 #include "ext_led.h"
 
-	
+int dataLength(char* ptr){
+	int i = 0;
+		while (ptr[i] != 0x00){
+			i++;
+		}
+		return i;
+}
+uint8_t getChecksum(char* ptr){
+	uint8_t sum;
+	int i = 0;
+		while (ptr[i] != '\n'){
+			sum += ptr[i];
+			i++;
+		}
+		return sum;
+}
 //////////////////////////////////////////////////////////////////////////////////
 // THREAD MAC RECEIVER
 //////////////////////////////////////////////////////////////////////////////////
@@ -21,6 +36,7 @@ void MacSender(void *argument)
 	osMessageQueueId_t queue_macSdata_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),NULL); 	
 	bool hasChanged = false;
 	char * msg;
+	char * saveMsg;
 	osStatus_t	retCode; //Message de retour de la queue
 	struct queueMsg_t queueMsg;	// message queue
 	struct queueMsg_t queueData;
@@ -98,6 +114,34 @@ void MacSender(void *argument)
 					0); 	
 				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);		
 				if (retCode != 0){  // retCode != osOk
+
+				} else {
+					saveMsg = osMemoryPoolAlloc(memPool,osWaitForever);
+					memset(saveMsg, 0x00, 4+dataLength(queueData.anyPtr));
+					memcpy(saveMsg, queueData.anyPtr, 4+dataLength(queueData.anyPtr));
+					//We send the data and keep the token until databack
+					queueData.type = TO_PHY;
+					//------------------------------------------------------------------------
+					// QUEUE SEND								
+					//------------------------------------------------------------------------
+					retCode = osMessageQueuePut(
+						queue_phyS_id,
+						&queueData,
+						osPriorityNormal,
+						osWaitForever);
+					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+					
+	/*				
+					queueData.anyPtr = saveMsg;
+					retCode = osMessageQueuePut(
+						queue_macSdata_id,
+						&queueData,
+						osPriorityNormal,
+						osWaitForever);
+					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+					*/
+				}
+				
 					//We send the token back if nothing is in the queue
 					msg[0] = TOKEN_TAG;
 					for (int i = 0; i < TOKENSIZE-1; i++){
@@ -115,32 +159,41 @@ void MacSender(void *argument)
 						osPriorityNormal,
 						osWaitForever);
 					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
-				} else {
-					//We send the data and keep the token until databack
-					queueData.type = TO_PHY;
-					//------------------------------------------------------------------------
-					// QUEUE SEND								
-					//------------------------------------------------------------------------
-					retCode = osMessageQueuePut(
-						queue_phyS_id,
-						&queueData,
-						osPriorityNormal,
-						osWaitForever);
-					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
-				}
 				
 				break;
 			case START:
 				
 				break;
 			case DATA_IND:
-				//We put the data into the queue
+				//We put the data into th+e queue
+			
+				//ICI IL FAUT MEMCPY ET ALLOUER DE LA MEMOIRE POUR METTRE DANS LA QUEUE
+			// ET METTRE EN FORME GENRE ACK STATUS LENGTH
+			//ET CETTE MEME TRAME IL FAUT REFAIRE UN MEME COPY AVEC UNE MEMALLOC ET LA DONNER AU PHY
+
+				msg = osMemoryPoolAlloc(memPool,osWaitForever);
+				memset(msg, 0xAA, 4+dataLength(queueMsg.anyPtr));
+				msg[0] = gTokenInterface.myAddress << 3;
+				msg[0] = msg[0]^queueMsg.sapi; //On met le chat sapi et l'addresse
+				msg[1] = queueMsg.addr << 3;
+				msg[1] = msg[1] ^ queueMsg.sapi;
+				msg[2] = dataLength(queueMsg.anyPtr);
+			
+				memcpy((char*)&(msg[3]), (const char*)queueMsg.anyPtr, dataLength(queueMsg.anyPtr));
+
+			  msg[3+msg[2]] = getChecksum(queueMsg.anyPtr)<<2; 
+			
+				retCode = osMemoryPoolFree(memPool,queueMsg.anyPtr);
+				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+			
+				queueMsg.anyPtr = msg;
 				retCode = osMessageQueuePut(
 					queue_macSdata_id,
 					&queueMsg,
 					osPriorityNormal,
 					osWaitForever);
 				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+				
 
 				break;
 			default :
