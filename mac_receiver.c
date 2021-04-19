@@ -15,10 +15,12 @@
 #define BIT_ACK 	0
 #define BIT_READ 	1
 
+osStatus_t retCode;
+
 
 void putTokenOnQueue(struct queueMsg_t msg){
 	//change type of message before dispatch it
-	queueMsg.type = TOKEN;
+	msg.type = TOKEN;
 	//put token frame in queue_macS_id
 	retCode = osMessageQueuePut(
 	queue_macS_id,
@@ -31,7 +33,7 @@ void putTokenOnQueue(struct queueMsg_t msg){
 
 void putInQueue(enum msgType_e type, struct queueMsg_t msg, osMessageQueueId_t queue){
 	//change type of message before dispatch it
-	queueMsg.type = type;
+	msg.type = type;
 	//put token frame in queue_macS_id
 	retCode = osMessageQueuePut(
 	queue,
@@ -62,16 +64,12 @@ void MacReceiver(void *argument)
 	uint8_t * msg;
 	uint8_t * qPtr;
 	size_t	size;
-	osStatus_t retCode;
+	
 	
 	uint8_t src_addr;
 	uint8_t dst_addr;
 	uint8_t* status;
 	uint8_t msg_length;
-	
-	enum states{ST_IDLE, ST_RECEIVING, ST_WAIT_TRANS};
-	enum states new_state = ST_IDLE;
-	enum states old_state;
 	
 	
 	for(;;){
@@ -120,7 +118,6 @@ void MacReceiver(void *argument)
 							putInQueue(DATABACK, queueMsg, queue_macS_id);
 							//put token frame in queue_macS_id
 							
-							
 						}
 					}
 					else{	//READ bit = 0
@@ -133,12 +130,12 @@ void MacReceiver(void *argument)
 				else{
 					if(dst_addr == MYADDRESS){
 						//compute CRC
-						if(calculateCRC(&msg) == status&&0xFC){
+						if(calculateCRC(msg) == (uint8_t)(&status)&&0xFC){
 							//set READ and ACK bits
 							status[BIT_ACK] = 1;
 							status[BIT_READ] = 1;
 							//put message in chat queue + MAC_DATA_INDICATION (?)
-							putInQueue(DATA_IND, msg, queue_chatR_id);
+							putInQueue(DATA_IND, queueMsg, queue_chatR_id);
 							
 						}
 						else{
@@ -146,7 +143,7 @@ void MacReceiver(void *argument)
 							status[BIT_ACK] = 0;
 							status[BIT_READ] = 1;
 							//resend data to sender
-							//putInQueue(type,message,queue);
+							putInQueue(TO_PHY, queueMsg, queue_phyS_id);							
 						}
 					}
 					else{
@@ -154,7 +151,7 @@ void MacReceiver(void *argument)
 					}
 				}
 			}
-		}while(/*queue_macR_id is not empty*/);	
+		}while(osMessageQueueGetCount(queue_macR_id) != 0);	
 		
 		//----------------------------------------------------------------------------
 		// MEMORY RELEASE	(created frame : phy layer style)
