@@ -33,6 +33,7 @@ uint8_t getChecksum(char* ptr){
 //////////////////////////////////////////////////////////////////////////////////
 void MacSender(void *argument)
 {
+	
 	osMessageQueueId_t queue_macSdata_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),NULL); 	
 	bool hasChanged = false;
 	char * msg;
@@ -41,6 +42,7 @@ void MacSender(void *argument)
 	struct queueMsg_t queueMsg;	// message queue
 	struct queueMsg_t queueData;
 	for (;;){
+		
 		//----------------------------------------------------------------------------
 		// QUEUE READ										
 		//----------------------------------------------------------------------------
@@ -73,11 +75,12 @@ void MacSender(void *argument)
 				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);		
 				break;
 			case TOKEN:
+				
 				/////////////////////////////////////////////
 				// TOKEN LIST
 				///////////////////////////////////////////
 				msg = queueMsg.anyPtr;//Get the token message
-				for (int i = 0; i < TOKENSIZE-1; i++){ //On mets a jour la station list avec le msg recu
+				for (int i = 0; i < TOKENSIZE-3; i++){ //On mets a jour la station list avec le msg recu
 					if (gTokenInterface.station_list[i] != msg[i+1]){
 						gTokenInterface.station_list[i] = msg[i+1];
 						hasChanged = true;
@@ -99,7 +102,7 @@ void MacSender(void *argument)
 					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);	
 					hasChanged = false;
 				}
-
+				
 				//Check if there is something into the data queue
 				/////////////////////////////////////////////////////////////////////////
 				// DATA CHECKIIIIIIIIIING
@@ -112,7 +115,7 @@ void MacSender(void *argument)
 					&queueData,
 					NULL,
 					0); 	
-				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);		
+				//CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);		
 				if (retCode != 0){  // retCode != osOk
 
 				} else {
@@ -131,18 +134,18 @@ void MacSender(void *argument)
 						osWaitForever);
 					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 					
-	/*				
-					queueData.anyPtr = saveMsg;
-					retCode = osMessageQueuePut(
-						queue_macSdata_id,
-						&queueData,
-						osPriorityNormal,
-						osWaitForever);
-					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
-					*/
+				
+		//			queueData.anyPtr = saveMsg;
+		//			retCode = osMessageQueuePut(
+		//				queue_macSdata_id,
+		//				&queueData,
+		//				osPriorityNormal,
+		//				osWaitForever);
+		//			CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+					
 				}
 				
-					//We send the token back if nothing is in the queue
+					//We send the token back
 					msg[0] = TOKEN_TAG;
 					for (int i = 0; i < TOKENSIZE-1; i++){
 						msg[i+1] = gTokenInterface.station_list[i];
@@ -199,5 +202,7 @@ void MacSender(void *argument)
 			default :
 				
 		}
+		
 	}
+	
 }
