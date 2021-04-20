@@ -44,17 +44,6 @@ void putInQueue(enum msgType_e type, struct queueMsg_t msg, osMessageQueueId_t q
 	CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);		
 }
 
-uint8_t calculateCRC(uint8_t* data){
-	uint8_t i = 0;
-	uint8_t temp = 0;
-	do{
-		temp += data[i];
-		i++;
-	}while(data[i] != '\0');
-	
-	return temp;
-}
-
 //////////////////////////////////////////////////////////////////////////////////
 // THREAD MAC RECEIVER
 //////////////////////////////////////////////////////////////////////////////////
@@ -108,7 +97,12 @@ void MacReceiver(void *argument)
 				else{
 					if(dst_addr == MYADDRESS){	//destination = this station
 						//compute CRC
-						if(calculateCRC(msg) == (uint8_t)&status&&0xFC){
+						uint8_t crc = qPtr[0] + qPtr[1] + msg_length;
+						for(uint8_t i=0;i < msg_length; i++){
+							crc += qPtr[i+3];
+						}
+						if(crc == (qPtr[msg_length + 3] >> 2)){
+							// CRC is valid
 							//set READ and ACK bits
 							status[BIT_ACK] = 1;
 							status[BIT_READ] = 1;
@@ -116,7 +110,7 @@ void MacReceiver(void *argument)
 							putInQueue(DATA_IND, queueMsg, queue_chatR_id);
 							
 						}
-						else{
+						else{	//CRC is not valid
 							//set READ bit only (ACK = 0)
 							status[BIT_ACK] = 0;
 							status[BIT_READ] = 1;
