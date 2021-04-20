@@ -65,15 +65,12 @@ void MacReceiver(void *argument)
 	uint8_t * qPtr;
 	size_t	size;
 	
-	
 	uint8_t src_addr;
 	uint8_t dst_addr;
 	uint8_t* status;
 	uint8_t msg_length;
-	
-	
+
 	for(;;){
-		do{
 			//----------------------------------------------------------------------------
 			// QUEUE READ										
 			//----------------------------------------------------------------------------
@@ -103,38 +100,19 @@ void MacReceiver(void *argument)
 				//get status from frame
 				status = msg + msg_length;
 			
-				if(src_addr == MYADDRESS){
+				if(src_addr == MYADDRESS){	//source = this station
 					//databack
-					if(status[BIT_READ] == 1){	//READ bit = 1
-						if(status[BIT_ACK] == 1){	//ACK bit = 1
-							//put TOKEN in mac sender queue
-							putTokenOnQueue(queueMsg);
-						}
-						else{	//ACK bit = 0
-							//reset READ and ACK bits
-							status[BIT_ACK] = 0;
-							status[BIT_READ] = 0;
-							//put data in mac sender queue 
-							putInQueue(DATABACK, queueMsg, queue_macS_id);
-							//put token frame in queue_macS_id
-							
-						}
-					}
-					else{	//READ bit = 0
-						//MAC_ERROR_INDICATION
-						
-						//put TOKEN in mac sender queue
-						putTokenOnQueue(queueMsg);
-					}
+					//put data in mac sender queue 
+					putInQueue(DATABACK, queueMsg, queue_macS_id);
 				}
 				else{
-					if(dst_addr == MYADDRESS){
+					if(dst_addr == MYADDRESS){	//destination = this station
 						//compute CRC
-						if(calculateCRC(msg) == (uint8_t)(&status)&&0xFC){
+						if(calculateCRC(msg) == (uint8_t)&status&&0xFC){
 							//set READ and ACK bits
 							status[BIT_ACK] = 1;
 							status[BIT_READ] = 1;
-							//put message in chat queue + MAC_DATA_INDICATION (?)
+							//put message in chat queue
 							putInQueue(DATA_IND, queueMsg, queue_chatR_id);
 							
 						}
@@ -143,15 +121,15 @@ void MacReceiver(void *argument)
 							status[BIT_ACK] = 0;
 							status[BIT_READ] = 1;
 							//resend data to sender
-							putInQueue(TO_PHY, queueMsg, queue_phyS_id);							
+							putInQueue(DATABACK, queueMsg, queue_macS_id);							
 						}
 					}
-					else{
-						//broadcast data
+					else{	//destination != this station
+							putInQueue(TO_PHY, queueMsg, queue_phyS_id);
+						
 					}
 				}
 			}
-		}while(osMessageQueueGetCount(queue_macR_id) != 0);	
 		
 		//----------------------------------------------------------------------------
 		// MEMORY RELEASE	(created frame : phy layer style)
