@@ -19,14 +19,14 @@ int dataLength(char* ptr){
 		}
 		return i;
 }
-uint8_t getChecksum(char* ptr){
-	uint8_t sum;
+uint8_t getChecksum(char* msg){
 	int i = 0;
-		while (ptr[i] != '\n'){
-			sum += ptr[i];
-			i++;
-		}
-		return sum;
+	uint8_t checksum = 0;
+	for(i=0;i<(msg[2]+3);i++)	// calculate checksum
+	{
+		checksum += msg[i];
+	}
+	return checksum;
 }
 //////////////////////////////////////////////////////////////////////////////////
 // THREAD MAC RECEIVER
@@ -117,6 +117,23 @@ void MacSender(void *argument)
 					0); 	
 				//CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);		
 				if (retCode != 0){  // retCode != osOk
+										//We send the token back
+					msg[0] = TOKEN_TAG;
+					for (int i = 0; i < TOKENSIZE-1; i++){
+						msg[i+1] = gTokenInterface.station_list[i];
+					}
+					
+					queueMsg.type = TO_PHY;
+					queueMsg.anyPtr = msg;
+					//------------------------------------------------------------------------
+					// QUEUE SEND								
+					//------------------------------------------------------------------------
+					retCode = osMessageQueuePut(
+						queue_phyS_id,
+						&queueMsg,
+						osPriorityNormal,
+						osWaitForever);
+					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 
 				} else {
 					saveMsg = osMemoryPoolAlloc(memPool,osWaitForever);
@@ -125,7 +142,7 @@ void MacSender(void *argument)
 					//We send the data and keep the token until databack
 					queueData.type = TO_PHY;
 					//------------------------------------------------------------------------
-					// QUEUE SEND								
+					// QUEUE SEND
 					//------------------------------------------------------------------------
 					retCode = osMessageQueuePut(
 						queue_phyS_id,
@@ -145,23 +162,7 @@ void MacSender(void *argument)
 					
 				}
 				
-					//We send the token back
-					msg[0] = TOKEN_TAG;
-					for (int i = 0; i < TOKENSIZE-1; i++){
-						msg[i+1] = gTokenInterface.station_list[i];
-					}
-					
-					queueMsg.type = TO_PHY;
-					queueMsg.anyPtr = msg;
-					//------------------------------------------------------------------------
-					// QUEUE SEND								
-					//------------------------------------------------------------------------
-					retCode = osMessageQueuePut(
-						queue_phyS_id,
-						&queueMsg,
-						osPriorityNormal,
-						osWaitForever);
-					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+
 				
 				break;
 			case START:
@@ -184,7 +185,7 @@ void MacSender(void *argument)
 			
 				memcpy((char*)&(msg[3]), (const char*)queueMsg.anyPtr, dataLength(queueMsg.anyPtr));
 
-			  msg[3+msg[2]] = getChecksum(queueMsg.anyPtr)<<2; 
+			  msg[3+msg[2]] = getChecksum(msg)<<2; 
 			
 				retCode = osMemoryPoolFree(memPool,queueMsg.anyPtr);
 				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
@@ -196,8 +197,32 @@ void MacSender(void *argument)
 					osPriorityNormal,
 					osWaitForever);
 				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
-				
-
+				break;
+			case DATABACK:
+				msg = queueMsg.anyPtr;
+				if ((msg[3+msg[2]] & 3) == 3) //Ack = 1, Read = 1
+					{
+					retCode = osMemoryPoolFree(memPool,saveMsg);
+					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);	
+						
+					//We send the token back
+					msg[0] = TOKEN_TAG;
+					for (int i = 0; i < TOKENSIZE-1; i++){
+						msg[i+1] = gTokenInterface.station_list[i];
+					}
+					
+					queueMsg.type = TO_PHY;
+					queueMsg.anyPtr = msg;
+					//------------------------------------------------------------------------
+					// QUEUE SEND								
+					//------------------------------------------------------------------------
+					retCode = osMessageQueuePut(
+						queue_phyS_id,
+						&queueMsg,
+						osPriorityNormal,
+						osWaitForever);
+					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+					}
 				break;
 			default :
 				
